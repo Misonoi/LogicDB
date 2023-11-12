@@ -17,7 +17,7 @@ func NewReaderWithPos[T io.Reader](reader T) *ReaderWithPos[T] {
 }
 
 func (r *ReaderWithPos[T]) Read(p []byte) (int, error) {
-	num, err := r.Read(p)
+	num, err := r.reader.Read(p)
 
 	r.pos += uint64(num)
 
@@ -41,7 +41,7 @@ func NewWriterPos[T io.Writer](writer T) *WriterWithPos[T] {
 }
 
 func (w *WriterWithPos[T]) Write(p []byte) (int, error) {
-	num, err := w.Write(p)
+	num, err := w.writer.Write(p)
 
 	w.pos += uint64(num)
 
