@@ -2,11 +2,11 @@ package marker
 
 import "fmt"
 
-type ErrKeyNotFound struct {
+type KeyNotFoundErr struct {
 	key []byte
 }
 
-func (e *ErrKeyNotFound) Error() string {
+func (e *KeyNotFoundErr) Error() string {
 	return fmt.Sprintf("key: %v is not found", e.key)
 }
 
