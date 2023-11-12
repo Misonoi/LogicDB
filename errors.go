@@ -1,4 +1,4 @@
-package marker
+package logicdb
 
 import "fmt"
 

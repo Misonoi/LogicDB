@@ -1,4 +1,4 @@
-package marker
+package logicdb
 
 // Kernel which defines the behavior of database.
 type Kernel interface {

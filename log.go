@@ -1,4 +1,4 @@
-package marker
+package logicdb
 
 // LogWriter which defines the behavior of log writer.
 type LogWriter interface {

@@ -1,4 +1,4 @@
-module marker
+module logicdb
 
 go 1.21
 
