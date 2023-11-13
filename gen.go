@@ -14,7 +14,7 @@ func init() {
 	GEN_BUF = time.Now().Unix()
 }
 
-// alloc new gen.
-func alloc() {
+// AllocGen new gen.
+func AllocGen() {
 	atomic.CompareAndSwapInt64(&GEN_BUF, GEN_BUF, GEN_BUF+1)
 }
