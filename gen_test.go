@@ -11,11 +11,11 @@ import (
 func TestGen(t *testing.T) {
 	var wg sync.WaitGroup
 
-	fmt.Printf("%v", GEN_BUF)
+	fmt.Printf("%v", GenBuf)
 
 	numGoroutines := 10
 
-	expectedFinalValue := GEN_BUF + int64(numGoroutines)
+	expectedFinalValue := GenBuf + uint64(numGoroutines)
 
 	wg.Add(numGoroutines)
 
@@ -28,5 +28,5 @@ func TestGen(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Equal(t, expectedFinalValue, atomic.LoadInt64(&GEN_BUF))
+	assert.Equal(t, expectedFinalValue, atomic.LoadUint64(&GenBuf))
 }

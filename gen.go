@@ -6,15 +6,15 @@ import (
 )
 
 var (
-	GEN_BUF int64 = 0
+	GenBuf uint64 = 0
 )
 
 // initialize the gen_buf with current timestamp.
 func init() {
-	GEN_BUF = time.Now().Unix()
+	GenBuf = uint64(time.Now().Unix())
 }
 
 // AllocGen new gen.
 func AllocGen() {
-	atomic.CompareAndSwapInt64(&GEN_BUF, GEN_BUF, GEN_BUF+1)
+	atomic.CompareAndSwapUint64(&GenBuf, GenBuf, GenBuf+1)
 }

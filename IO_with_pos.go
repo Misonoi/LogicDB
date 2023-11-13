@@ -8,29 +8,31 @@ import (
 type ReadSeeker interface {
 	io.Reader
 	io.Seeker
+	io.ReaderAt
 }
 
 type WriteSeeker interface {
 	io.Writer
 	io.Seeker
+	io.WriterAt
 }
 
 type ReaderWithPos[T ReadSeeker] struct {
 	reader T
-	pos    uint64
+	Pos    uint64
 }
 
 func NewReaderWithPos[T ReadSeeker](reader T) *ReaderWithPos[T] {
 	return &ReaderWithPos[T]{
 		reader: reader,
-		pos:    0,
+		Pos:    0,
 	}
 }
 
 func (r *ReaderWithPos[T]) Read(p []byte) (int, error) {
 	num, err := r.reader.Read(p)
 
-	r.pos += uint64(num)
+	r.Pos += uint64(num)
 
 	if err != nil {
 		return 0, err
@@ -39,8 +41,12 @@ func (r *ReaderWithPos[T]) Read(p []byte) (int, error) {
 	return num, err
 }
 
+func (r *ReaderWithPos[T]) ReadAt(p []byte, offset int64) (int, error) {
+	return r.reader.ReadAt(p, offset)
+}
+
 func (r *ReaderWithPos[T]) Seek(offset int64, whence int) (int64, error) {
-	currentPos := int64(r.pos)
+	currentPos := int64(r.Pos)
 
 	var newPos int64
 
@@ -67,27 +73,27 @@ func (r *ReaderWithPos[T]) Seek(offset int64, whence int) (int64, error) {
 		return 0, err
 	}
 
-	r.pos = uint64(newPos)
+	r.Pos = uint64(newPos)
 
 	return newPos, nil
 }
 
 type WriterWithPos[T WriteSeeker] struct {
 	writer T
-	pos    uint64
+	Pos    uint64
 }
 
 func NewWriterWithPos[T WriteSeeker](writer T) *WriterWithPos[T] {
 	return &WriterWithPos[T]{
 		writer: writer,
-		pos:    0,
+		Pos:    0,
 	}
 }
 
 func (w *WriterWithPos[T]) Write(p []byte) (int, error) {
 	num, err := w.writer.Write(p)
 
-	w.pos += uint64(num)
+	w.Pos += uint64(num)
 
 	if err != nil {
 		return 0, err
@@ -96,8 +102,12 @@ func (w *WriterWithPos[T]) Write(p []byte) (int, error) {
 	return num, err
 }
 
+func (w *WriterWithPos[T]) WriteAt(p []byte, offset int64) (int, error) {
+	return w.writer.WriteAt(p, offset)
+}
+
 func (w *WriterWithPos[T]) Seek(offset int64, whence int) (int64, error) {
-	currentPos := int64(w.pos)
+	currentPos := int64(w.Pos)
 
 	var newPos int64
 	switch whence {
@@ -121,7 +131,7 @@ func (w *WriterWithPos[T]) Seek(offset int64, whence int) (int64, error) {
 		return 0, err
 	}
 
-	w.pos = uint64(newPos)
+	w.Pos = uint64(newPos)
 
 	return newPos, nil
 }
