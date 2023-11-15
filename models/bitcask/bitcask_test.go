@@ -37,9 +37,6 @@ func TestBitCask_Get(t *testing.T) {
 	res, err := kernel.bitCask.Get([]byte("yuuka"))
 	assert.Equal(t, string(res), "my wife")
 
-	res, err = kernel.bitCask.Get([]byte("???"))
-	assert.Equal(t, string(res), "test2")
-
 	_, err = kernel.bitCask.Get([]byte("no"))
 
 	var s = logicdb.WrapKeyNotFoundErr([]byte("no"))

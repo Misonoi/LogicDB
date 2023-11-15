@@ -260,24 +260,17 @@ func readEntry(f *logicdb.ReaderWithPos[*os.File]) (*Entry, error) {
 		return nil, err
 	}
 
-	key := make([]byte, meta.keySize)
-	value := make([]byte, meta.valueSize)
+	keyValue := make([]byte, meta.keySize+meta.valueSize)
 
-	_, err = f.Read(key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = f.Read(value)
+	_, err = f.Read(keyValue)
 
 	if err != nil {
 		return nil, err
 	}
 
 	entry.meta = meta
-	entry.key = key
-	entry.value = value
+	entry.key = keyValue[0:meta.keySize]
+	entry.value = keyValue[meta.keySize:]
 
 	return entry, nil
 }
@@ -290,39 +283,18 @@ func readEntryMeta(f *logicdb.ReaderWithPos[*os.File]) (*EntryMeta, error) {
 		valueSize: 0,
 	}
 
-	cBytes := make([]byte, 4)
-	tBytes := make([]byte, 8)
-	kBytes := make([]byte, 8)
-	vBytes := make([]byte, 8)
+	all := make([]byte, 4+8*3)
 
-	_, err := f.Read(cBytes)
+	_, err := f.Read(all)
 
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = f.Read(tBytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = f.Read(kBytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = f.Read(vBytes)
-
-	if err != nil {
-		return nil, err
-	}
-
-	meta.crc = binary.LittleEndian.Uint32(cBytes)
-	meta.timestamp = binary.LittleEndian.Uint64(tBytes)
-	meta.valueSize = binary.LittleEndian.Uint64(vBytes)
-	meta.keySize = binary.LittleEndian.Uint64(kBytes)
+	meta.crc = binary.LittleEndian.Uint32(all)
+	meta.timestamp = binary.LittleEndian.Uint64(all[4:])
+	meta.keySize = binary.LittleEndian.Uint64(all[12:])
+	meta.valueSize = binary.LittleEndian.Uint64(all[20:])
 
 	return meta, nil
 }
@@ -392,6 +364,7 @@ func (b *BitCask) recover() error {
 
 		b.current = logicdb.NewWriterWithPos(file)
 		b.currentGen = gen
+		b.fs[gen] = logicdb.NewReaderWithPos(file)
 	}
 
 	return nil
