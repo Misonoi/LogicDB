@@ -1,6 +1,7 @@
 package bitcask
 
 import (
+	"crypto/rand"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"logicdb"
@@ -36,6 +37,11 @@ func TestBitCask_Get(t *testing.T) {
 
 	res, err := kernel.bitCask.Get([]byte("yuuka"))
 	assert.Equal(t, string(res), "my wife")
+
+	kernel.bitCask.Set([]byte("yuuka"), []byte("my wife!"))
+
+	res, err = kernel.bitCask.Get([]byte("yuuka"))
+	assert.Equal(t, string(res), "my wife!")
 
 	_, err = kernel.bitCask.Get([]byte("no"))
 
@@ -81,4 +87,28 @@ func TestBitCask_RemoveWithGet(t *testing.T) {
 	var s = logicdb.WrapKeyNotFoundErr([]byte("no"))
 
 	assert.Equal(t, errors.As(err, &s), true)
+}
+
+func TestSwitch(t *testing.T) {
+	kernel, err := newKernel()
+	assert.Equal(t, err, nil)
+
+	key := make([]byte, 1)
+	value := make([]byte, 1024*1024*1024-1)
+
+	rand.Read(key)
+	rand.Read(value)
+
+	kernel.Set(key, value)
+
+	rand.Read(key)
+	rand.Read(value)
+
+	kernel.Set(key, value)
+
+	rand.Read(key)
+	rand.Read(value)
+
+	kernel.Set(key, value)
+	//kernel.Set([]byte{2}, []byte{1})
 }

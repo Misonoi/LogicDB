@@ -3,6 +3,7 @@ package bitcask
 import (
 	"encoding/binary"
 	"fmt"
+	bloom "github.com/liyue201/gostl/ds/bloomfilter"
 	"hash/crc32"
 	"io"
 	"logicdb"
@@ -79,17 +80,13 @@ func newEntry(key []byte, value []byte, deleted bool) *Entry {
 func Crc32(timestamp uint64, keySize uint64, valueSize uint64, key []byte, value []byte) uint32 {
 	crc := crc32.NewIEEE()
 
-	tBytes := make([]byte, 8)
-	kBytes := make([]byte, 8)
-	vBytes := make([]byte, 8)
+	all := make([]byte, 24)
 
-	binary.LittleEndian.PutUint64(tBytes, timestamp)
-	binary.LittleEndian.PutUint64(kBytes, keySize)
-	binary.LittleEndian.PutUint64(vBytes, valueSize)
+	binary.LittleEndian.PutUint64(all, timestamp)
+	binary.LittleEndian.PutUint64(all[8:], keySize)
+	binary.LittleEndian.PutUint64(all[16:], valueSize)
 
-	_, _ = crc.Write(tBytes)
-	_, _ = crc.Write(kBytes)
-	_, _ = crc.Write(vBytes)
+	_, _ = crc.Write(all)
 	_, _ = crc.Write(key)
 	_, _ = crc.Write(value)
 
@@ -130,6 +127,7 @@ type BitCask struct {
 	current    *logicdb.WriterWithPos[*os.File]
 	mem        *stl4go.SkipList[*InternalKey, InternalValue]
 	fs         map[uint64]*logicdb.ReaderWithPos[*os.File]
+	filter     *bloom.BloomFilter
 	config     *Config
 }
 
@@ -138,11 +136,16 @@ func KeyWithInternal(key []byte) *InternalKey {
 }
 
 func (b *BitCask) Get(key []byte) ([]byte, error) {
-	if !b.mem.Has(KeyWithInternal(key)) {
+	if !b.filter.Contains(string(key)) {
 		return nil, logicdb.WrapKeyNotFoundErr(key)
 	}
 
 	value := b.mem.Find(KeyWithInternal(key))
+
+	if value == nil {
+		return nil, logicdb.WrapKeyNotFoundErr(key)
+	}
+
 	f := b.fs[value.gen]
 
 	res := make([]byte, value.valueSize)
@@ -163,7 +166,7 @@ func (b *BitCask) switchCurrent() error {
 	logicdb.AllocGen()
 	gen := atomic.LoadUint64(&logicdb.GenBuf)
 
-	file, err := os.Create(filepath.Join(b.config.Dir, strconv.FormatUint(gen, 10), ".bc"))
+	file, err := os.Create(filepath.Join(b.config.Dir, fmt.Sprintf("%v.bc", gen)))
 
 	if err != nil {
 		return err
@@ -179,25 +182,19 @@ func (b *BitCask) writeEntry(entry *Entry) (int, error) {
 }
 
 func (b *BitCask) Set(key []byte, value []byte) error {
-	ok, err := b.Contains(key)
-
-	if err != nil {
-		return nil
-	}
-
-	if ok {
-		return nil
-	}
-
 	entry := newEntry(key, value, false)
-	_, err = b.writeEntry(entry)
+	_, err := b.writeEntry(entry)
 
 	if err != nil {
 		return err
 	}
 
+	b.filter.Add(string(key))
+
 	b.mem.Insert(KeyWithInternal(key),
 		ValueWithInternal(b.currentGen, entry.meta.valueSize, b.current.Pos-entry.meta.valueSize, entry.meta.timestamp))
+
+	println(b.current.Pos)
 
 	if b.current.Pos >= MaxFileSize {
 		return b.switchCurrent()
@@ -207,6 +204,10 @@ func (b *BitCask) Set(key []byte, value []byte) error {
 }
 
 func (b *BitCask) Remove(key []byte) (bool, error) {
+	if !b.filter.Contains(string(key)) {
+		return false, nil
+	}
+
 	if !b.mem.Has(KeyWithInternal(key)) {
 		return false, nil
 	}
@@ -224,6 +225,10 @@ func (b *BitCask) Remove(key []byte) (bool, error) {
 }
 
 func (b *BitCask) RemoveWithGet(key []byte) ([]byte, bool, error) {
+	if !b.filter.Contains(string(key)) {
+		return nil, false, nil
+	}
+
 	if !b.mem.Has(KeyWithInternal(key)) {
 		return nil, false, nil
 	}
@@ -244,6 +249,10 @@ func (b *BitCask) RemoveWithGet(key []byte) ([]byte, bool, error) {
 }
 
 func (b *BitCask) Contains(key []byte) (bool, error) {
+	if !b.filter.Contains(string(key)) {
+		return false, nil
+	}
+
 	return b.mem.Has(KeyWithInternal(key)), nil
 }
 
@@ -305,9 +314,13 @@ func (b *BitCask) recoverSingle(f *os.File, gen uint64) error {
 
 	for entry, err := readEntry(fs); err == nil; entry, err = readEntry(fs) {
 		if entry.meta.valueSize != 0 {
+			b.filter.Add(string(entry.key))
+
 			b.mem.Insert(KeyWithInternal(entry.key),
 				ValueWithInternal(gen, entry.meta.valueSize, fs.Pos-entry.meta.valueSize, entry.meta.timestamp))
 		} else {
+			b.filter.Add(string(entry.key))
+
 			b.mem.Remove(KeyWithInternal(entry.key))
 		}
 	}
@@ -402,6 +415,7 @@ func open(config *Config) (*BitCask, error) {
 		mem:        stl4go.NewSkipListFunc[*InternalKey, InternalValue](InternalKeyCP),
 		config:     config,
 		fs:         make(map[uint64]*logicdb.ReaderWithPos[*os.File]),
+		filter:     bloom.New(100, 4, bloom.WithGoroutineSafe()),
 	}
 
 	err = bitCask.recover()
