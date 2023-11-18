@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option go_package = "./";
+
+package proto;
+
+service LogicDB {
+  rpc Set (SetReq) returns (SetResp) {}
+  rpc Remove (RemoveReq) returns (RemoveResp) {}
+  rpc Get (GetReq) returns (GetResp) {}
+  rpc Remove_with_get (RemoveWithGetReq) returns (RemoveWithGeqResp) {}
+}
+
+message SetReq {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message SetResp {
+  bool success = 1;
+}
+
+message GetReq {
+  bytes key = 1;
+}
+
+message GetResp {
+  optional bytes value = 1;
+}
+
+message RemoveReq {
+  bytes key = 1;
+}
+
+message RemoveResp {
+  bool success = 1;
+}
+
+message RemoveWithGetReq {
+  bytes key = 1;
+}
+
+message RemoveWithGeqResp {
+  bool success = 1;
+  optional bytes value = 2;
+}
+
